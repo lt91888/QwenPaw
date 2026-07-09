@@ -52,6 +52,21 @@ class IterationGate(LoopGate):
             _IterState(max_iterations=limit),
         )
 
+    def reset(self) -> None:
+        """Reset iteration counter for the current session.
+
+        Called at the start of each new user turn so that
+        ``max_iterations`` applies per-turn rather than
+        accumulating across the entire session.
+        """
+        state = self._state()
+        if state is not None:
+            state.iteration = 0
+            logger.debug(
+                "IterationGate reset (session=%s)",
+                self._session_id(),
+            )
+
     async def check(
         self,
         ctx: Any,  # pylint: disable=unused-argument
