@@ -20,7 +20,13 @@ from qwenpaw.exceptions import (
 )
 
 from .timezone import detect_system_timezone
+from ..security.secret_store import (
+    CHANNEL_SECRET_FIELDS,
+    decrypt_dict_fields,
+    encrypt_dict_fields,
+)
 from ..constant import (
+
     HEARTBEAT_DEFAULT_EVERY,
     HEARTBEAT_DEFAULT_TARGET,
     HEARTBEAT_DEFAULT_TIMEOUT_SECONDS,
@@ -2330,6 +2336,15 @@ def load_agent_config(  # pylint: disable=too-many-branches,too-many-statements
         with open(agent_config_path, "r", encoding="utf-8") as f:
             data = json.load(f)
 
+        # Decrypt channel secret fields transparently on load
+        channels = data.get("channels")
+        if isinstance(channels, dict):
+            for ch_name, ch_cfg in channels.items():
+                if isinstance(ch_cfg, dict):
+                    channels[ch_name] = decrypt_dict_fields(
+                        ch_cfg, CHANNEL_SECRET_FIELDS,
+                    )
+
         # One-shot migration: rename legacy ``channels.weixin`` key to
         # ``channels.wechat`` and rewrite the file on disk so future loads
         # see the canonical key directly. This rewrite must happen BEFORE
@@ -2444,13 +2459,30 @@ def save_agent_config(
 
     agent_config_path = workspace_dir / "agent.json"
 
+    data = agent_config.model_dump(exclude_none=True)
+
+    # Encrypt channel secret fields before persisting to disk
+    channels = data.get("channels")
+    if isinstance(channels, dict):
+        for ch_name, ch_cfg in channels.items():
+            if isinstance(ch_cfg, dict):
+                channels[ch_name] = encrypt_dict_fields(
+                    ch_cfg, CHANNEL_SECRET_FIELDS,
+                )
+
     with open(agent_config_path, "w", encoding="utf-8") as f:
         json.dump(
-            agent_config.model_dump(exclude_none=True),
+            data,
             f,
             ensure_ascii=False,
             indent=2,
         )
+
+    # Restrict file permissions to owner-only (mask group/other read)
+    try:
+        agent_config_path.chmod(0o600)
+    except OSError:
+        pass
 
     # Invalidate cache after saving
     with _agent_config_lock:

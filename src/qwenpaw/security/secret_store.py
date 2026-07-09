@@ -431,6 +431,34 @@ PROVIDER_SECRET_FIELDS: frozenset[str] = frozenset({"api_key"})
 
 # Fields that should be encrypted when persisting auth.json.
 AUTH_SECRET_FIELDS: frozenset[str] = frozenset({"jwt_secret"})
+# Fields that should be encrypted when persisting channel configs.
+# Covers all built-in channel types: WeChat, DingTalk, QQ, Feishu,
+# Telegram, Discord, Slack, OneBot, Mattermost, Wecom, Yuanbao,
+# XiaoYi, SIP/Voice, etc.
+CHANNEL_SECRET_FIELDS: frozenset[str] = frozenset({
+    "bot_token",
+    "bot_token_file",
+    "client_id",
+    "client_secret",
+    "app_id",
+    "app_secret",
+    "encrypt_key",
+    "verification_token",
+    "access_token",
+    "secret",
+    "twilio_auth_token",
+    "sip_password",
+    "dashscope_api_key",
+    "livekit_api_key",
+    "livekit_api_secret",
+    "ak",
+    "sk",
+    "app_token",
+    "access_key_id",
+    "access_key_secret",
+})
+
+
 
 
 def encrypt_dict_fields(
