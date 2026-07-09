@@ -600,10 +600,36 @@ class QwenPawAgent(CodingModeMixin, Agent):
             self.state.context.append(hint)
 
     async def _reply(self, **kwargs: Any) -> Any:
-        """Override to inject pending background-tool hints before reply."""
+        """Override to inject pending background-tool hints before reply,
+        and reset the iteration gate for each new user turn."""
         await self._inject_pending_hints()
+        self._reset_iteration_gate()
         async for evt in super()._reply(**kwargs):
             yield evt
+
+    def _reset_iteration_gate(self) -> None:
+        """Reset iteration counter for a new user turn.
+
+        Finds the IterationGate among registered stop handlers
+        and resets its per-session counter so that each user
+        message gets a fresh ``max_iterations`` budget.
+        """
+        try:
+            from ..loop.gates.iteration import IterationGate
+            handlers = self._get_stop_handlers()
+            for reg in handlers:
+                handler = getattr(reg, "handler", None)
+                if handler is None:
+                    continue
+                for gate in getattr(handler, "gates", []):
+                    if isinstance(gate, IterationGate):
+                        gate.reset()
+                        return
+        except Exception:
+            logger.debug(
+                "Failed to reset iteration gate",
+                exc_info=True,
+            )
 
     def _register_tool_call_hooks(self) -> None:
         """Register per-tool default timeouts on the ToolCoordinator."""
